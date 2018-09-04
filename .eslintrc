@@ -1,0 +1,45 @@
+{
+  "extends": ["react-app", "prettier", "prettier/react"],
+  "plugins": ["prettier"],
+  "rules": {
+    "react/jsx-sort-props": [
+      1,
+      {
+        "callbacksLast": true
+      }
+    ],
+    "react/sort-prop-types": [
+      1,
+      {
+        "callbacksLast": true
+      }
+    ],
+    "react/jsx-no-bind": 0,
+    "jsx-a11y/href-no-hash": 0,
+    "jsx-a11y/anchor-is-valid": [
+      1,
+      {
+        "aspects": ["invalidHref"]
+      }
+    ],
+    "prettier/prettier": [
+      1,
+      {
+        "singleQuote": true,
+        "semi": false,
+        "printWidth": 80,
+        "bracketSpacing": true
+      }
+    ],
+    "max-len": [
+      2,
+      {
+        "code": 80,
+        "ignoreUrls": true
+      }
+    ],
+    "prefer-const": 2,
+    "no-confusing-arrow": 0,
+    "no-duplicate-imports": 2
+  }
+}
