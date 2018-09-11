@@ -40,6 +40,8 @@ export class AnimatedSideMenuBar extends Component {
   };
 
   render() {
+    const { onHistoryPress, onPaymentPress, onSettingsPress } = this.props
+
     const currentValue = this.animVal.interpolate({
       inputRange: [0, 1],
       outputRange: [-50, 0]
@@ -53,9 +55,9 @@ export class AnimatedSideMenuBar extends Component {
 
     return (
       <Animated.View style={[containerStyle, style]}>
-        <AnimatedMenuItem icon='book' onPress={() => {}} />
-        <AnimatedMenuItem icon='credit-card' onPress={() => {}} />
-        <AnimatedMenuItem icon='cogs' onPress={() => {}} />
+        <AnimatedMenuItem icon='book' onPress={onHistoryPress} />
+        <AnimatedMenuItem icon='credit-card' onPress={onPaymentPress} />
+        <AnimatedMenuItem icon='cogs' onPress={onSettingsPress} />
       </Animated.View>
     )
   }

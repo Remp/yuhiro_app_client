@@ -1,18 +1,21 @@
 import React, { PureComponent } from "react";
-import { BackHandler, Keyboard } from "react-native";
+import { BackHandler, Platform, Dimensions } from "react-native";
 import MapView, { PROVIDER_GOOGLE, Marker, Polyline } from "react-native-maps";
 import Icon from "react-native-vector-icons/FontAwesome";
 import uuid from "uuid";
 import find from "lodash/find";
 import debounce from "lodash/debounce";
+import { Actions } from "react-native-router-flux";
 
 import nightStyle from "app/Theme/map/night";
 import coboltStyle from "app/Theme/map/cobolt";
 import strangerStyle from "app/Theme/map/stranger";
 import * as colors from "app/Theme/colors";
 import { IconButton, PlacesScroller } from "app/Components/Blocks";
-import { getPredictions, getGeoById } from "app/Api/map";
+import { getPredictions, getGeoById, getRoute } from "app/Api/map";
 import { parsePolylineToCoords } from "app/Helpers/map";
+import * as routes from "app/Constants/routes";
+import taxisList from "app/Test/taxisList";
 
 import { Container, Tools, Upper, MarkerContainer, mapStyle } from "./styles";
 import {
@@ -21,7 +24,9 @@ import {
   AnimatedSideMenuBar,
   AnimatedOkeyButton,
   AnimatedAcceptPanel,
-  CalcBackButton
+  CalcBackButton,
+  AnimatedSearchingMarker,
+  BarLoader
 } from "./innerBlocks";
 
 export default class Main extends PureComponent {
@@ -36,14 +41,22 @@ export default class Main extends PureComponent {
     super();
 
     this.state = {
-      moving: false, // prevents no needed request for address if select point
+      moving: false, // prevents no needed request for an address if selecting a point
       searchText: "",
       isSearching: false,
       places: [],
       loadPlaces: false,
       tabIndex: 0,
       isMenuOpen: false,
-      isOkayBtnDisplayed: false
+      isOkayBtnDisplayed: false,
+      pingMarker: {
+        left: 0,
+        top: 0
+      },
+      taxiCoords: {
+        lat: null,
+        lng: null
+      }
     };
 
     const { onAddPoint } = props;
@@ -115,9 +128,10 @@ export default class Main extends PureComponent {
   componentDidUpdate(prevProps, prevState) {
     const { route, points } = this.props;
 
+    // on a route is calculated, move map to a middle point of a route
     if (route.isLoaded && !prevProps.route.isLoaded) {
-      const start = points[0]
-      const end = points[points.length - 1]
+      const start = points[0];
+      const end = points[points.length - 1];
 
       this.map.animateToRegion({
         latitude: (start.lat + end.lat) / 2,
@@ -291,9 +305,57 @@ export default class Main extends PureComponent {
     return true;
   };
 
-  renderMarkers = () => {
-    const { points, selected, route } = this.props;
+  handleAcceptOrder = async () => {
+    const { onSelectPoint, onAcceptOrder, onTestGetTaxi, points } = this.props;
 
+    onSelectPoint(null);
+    onAcceptOrder();
+
+    // test
+    const taxi = taxisList[Math.round(Math.random() * 4)];
+    const origin = {
+      lat: taxi.lat,
+      lng: taxi.lng
+    };
+    const dest = {
+      lat: points[0].lat,
+      lng: points[0].lng
+    };
+    const route = (await getRoute(origin, dest)).data.routes[0];
+    // return console.log("route", route);
+    const curve = route.overview_polyline.points;
+    const taxiPoints = parsePolylineToCoords(curve);
+    let current = 0;
+    setTimeout(() => {
+      onTestGetTaxi();
+
+      const interval = setInterval(() => {
+        if (current === taxiPoints.length) {
+          return clearInterval(interval);
+        }
+
+        const point = taxiPoints[current++];
+
+        this.setState({
+          taxiCoords: {
+            lat: point.latitude,
+            lng: point.longitude
+          }
+        });
+      }, 1000);
+    }, 10000);
+    //
+  };
+
+  handleCancelOrder = () => {
+    const { onCancelOrder, onResetCalcWay } = this.props;
+
+    onCancelOrder();
+    onResetCalcWay();
+  };
+
+  renderMarkers = () => {
+    const { points, selected, taxi } = this.props;
     const markers = [];
 
     for (let i = 0; i < points.length; i++) {
@@ -314,7 +376,50 @@ export default class Main extends PureComponent {
       );
     }
 
+    if (taxi.isSearching && Platform.OS === "ios") {
+      markers.push(
+        <Marker
+          coordinate={{
+            latitude: points[0].lat,
+            longitude: points[0].lng
+          }}
+        >
+          <AnimatedSearchingMarker />
+        </Marker>
+      );
+    }
+
     return markers;
+  };
+
+  renderTaxis = () => {
+    const { taxi } = this.props;
+    const { taxiCoords } = this.state;
+
+    if (taxi.isFound && taxiCoords.lat && taxiCoords.lng) {
+      return (
+        <Marker
+          coordinate={{
+            latitude: taxiCoords.lat,
+            longitude: taxiCoords.lng
+          }}
+        >
+          <Icon name="car" color="white" size={15} />
+        </Marker>
+      );
+    }
+
+    return taxisList.map((taxi, i) => (
+      <Marker
+        coordinate={{
+          latitude: taxi.lat,
+          longitude: taxi.lng
+        }}
+        key={i}
+      >
+        <Icon name="car" color="white" size={15} />
+      </Marker>
+    ));
   };
 
   render() {
@@ -322,6 +427,7 @@ export default class Main extends PureComponent {
       points,
       selected,
       route,
+      taxi,
       onSetPoint,
       onSetPointLoading,
       onDeletePoint,
@@ -347,7 +453,6 @@ export default class Main extends PureComponent {
           style={mapStyle}
           ref={el => (this.map = el)}
           onPress={this.handleMapPress}
-          // onRegionChange={currentRegion => this.setState({ currentRegion })}
           onRegionChangeComplete={this.handleRegionChange}
         >
           {route.isLoaded && (
@@ -358,21 +463,29 @@ export default class Main extends PureComponent {
             />
           )}
           {this.renderMarkers()}
+          {this.renderTaxis()}
         </MapView>
+        
         <AnimatedAcceptPanel
-          display={route.isLoaded}
+          display={
+            route.isLoaded && !taxi.isSearching && !isSearching && !taxi.isFound
+          }
           distance={route.distance}
           duration={route.duration}
-          onAccept={() => {}}
+          onAccept={this.handleAcceptOrder}
         />
 
         {/*below absolute positioned components*/}
-        {route.isLoaded && <CalcBackButton onPress={onResetCalcWay} />}
+        {route.isLoaded && !taxi.isSearching && !taxi.isFound ? (
+          <CalcBackButton onPress={onResetCalcWay} />
+        ) : null}
+
         <AnimatedOkeyButton
-          display={isOkayBtnDisplayed && !route.isLoaded}
+          display={isOkayBtnDisplayed && !route.isLoaded && !taxi.isFound}
           loading={route.isLoading}
           onPress={() => onCalculateWay(points)}
         />
+
         <Tools>
           <Upper>
             <IconButton
@@ -405,7 +518,11 @@ export default class Main extends PureComponent {
             onPressAddress={this.handleAddressClick}
           />
         </Tools>
-        {!isSearching && !route.isLoaded ? (
+
+        {!isSearching &&
+        !route.isLoaded &&
+        !taxi.isSearching &&
+        !taxi.isFound ? (
           <PlacesScroller
             points={points}
             selected={selected}
@@ -417,8 +534,23 @@ export default class Main extends PureComponent {
             onDeletePoint={onDeletePoint}
           />
         ) : null}
-        <AnimatedSideMenuBar display={isMenuOpen} />
-        {selected !== null && selected !== undefined && !isSearching ? (
+
+        {/*menu*/}
+        <AnimatedSideMenuBar
+          display={isMenuOpen}
+          onHistoryPress={() => Actions.push(routes.history)}
+          onPaymentPress={() => Actions.push(routes.payment)}
+          onSettingsPress={() => Actions.push(routes.settings)}
+        />
+
+        {!isSearching && taxi.isSearching && !taxi.isFound ? (
+          <BarLoader onPress={this.handleCancelOrder} />
+        ) : null}
+
+        {selected !== null &&
+        !isSearching &&
+        !taxi.isSearching &&
+        !taxi.isFound ? (
           <MarkerContainer>
             <Icon name="bolt" color="white" size={40} />
           </MarkerContainer>

@@ -1,8 +1,10 @@
 import { connect } from "react-redux";
 import { createStructuredSelector } from "reselect";
 import { getStep, getLoadingState } from "app/Redux/selectors/auth";
+import { getTaxi } from 'app/Redux/selectors/taxi'
 import { getPoints, getSelected, getRoute } from "app/Redux/selectors/map";
 import { sendTel } from "app/Redux/actions/auth";
+import { acceptOrder, cancelOrder, testGetTaxi } from 'app/Redux/actions/taxi'
 import {
   addPoint,
   loadPoint,
@@ -19,7 +21,8 @@ const selector = createStructuredSelector({
   isLoading: getLoadingState,
   points: getPoints,
   selected: getSelected,
-  route: getRoute
+  route: getRoute,
+  taxi: getTaxi
 });
 
 const actions = {
@@ -30,7 +33,10 @@ const actions = {
   onSelectPoint: selectPoint,
   onDeletePoint: deletePoint,
   onCalculateWay: calculateWay,
-  onResetCalcWay: resetCalcWay
+  onResetCalcWay: resetCalcWay,
+  onAcceptOrder: acceptOrder,
+  onCancelOrder: cancelOrder,
+  onTestGetTaxi: testGetTaxi
 };
 
 export const Main = connect(

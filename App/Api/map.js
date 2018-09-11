@@ -31,3 +31,16 @@ export const getGeoById = placeId => {
     }
   });
 };
+
+export const getRoute = (origin, dest) => {
+  return axios({
+    url: 'https://maps.googleapis.com/maps/api/directions/json',
+    method: 'GET',
+    params: {
+      key: MAP_KEY,
+      origin: `${origin.lat},${origin.lng}`,
+      destination: `${dest.lat},${dest.lng}`
+    },
+    withCredentials: true
+  })
+}

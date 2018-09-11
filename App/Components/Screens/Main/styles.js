@@ -50,3 +50,7 @@ export const MarkerContainer = styled.view({
 export const CalcBackButton = styled.view({
   
 })
+
+export const PingMarkerContainer = styled.view({
+  position: 'absolute'
+})
