@@ -15,6 +15,7 @@ import { IconButton, PlacesScroller } from "app/Components/Blocks";
 import { getPredictions, getGeoById, getRoute } from "app/Api/map";
 import { parsePolylineToCoords } from "app/Helpers/map";
 import * as routes from "app/Constants/routes";
+import taxiStatus from "app/Constants/taxiStatus";
 import taxisList from "app/Test/taxisList";
 
 import { Container, Tools, Upper, MarkerContainer, mapStyle } from "./styles";
@@ -26,7 +27,8 @@ import {
   AnimatedAcceptPanel,
   CalcBackButton,
   AnimatedSearchingMarker,
-  BarLoader
+  BarLoader,
+  AnimatedTaxiStatus
 } from "./innerBlocks";
 
 export default class Main extends PureComponent {
@@ -465,7 +467,7 @@ export default class Main extends PureComponent {
           {this.renderMarkers()}
           {this.renderTaxis()}
         </MapView>
-        
+
         <AnimatedAcceptPanel
           display={
             route.isLoaded && !taxi.isSearching && !isSearching && !taxi.isFound
@@ -475,7 +477,7 @@ export default class Main extends PureComponent {
           onAccept={this.handleAcceptOrder}
         />
 
-        {/*below absolute positioned components*/}
+        {/*below absolutly positioned components*/}
         {route.isLoaded && !taxi.isSearching && !taxi.isFound ? (
           <CalcBackButton onPress={onResetCalcWay} />
         ) : null}
@@ -543,14 +545,19 @@ export default class Main extends PureComponent {
           onSettingsPress={() => Actions.push(routes.settings)}
         />
 
-        {!isSearching && taxi.isSearching && !taxi.isFound ? (
+        {!isSearching && taxi.status === taxiStatus.searching ? (
           <BarLoader onPress={this.handleCancelOrder} />
+        ) : null}
+
+        {!isSearching &&
+        taxi.status !== taxiStatus.none &&
+        taxi.status !== taxiStatus.searching ? (
+          <AnimatedTaxiStatus message={taxi.message} />
         ) : null}
 
         {selected !== null &&
         !isSearching &&
-        !taxi.isSearching &&
-        !taxi.isFound ? (
+        taxi.status === taxiStatus.none ? (
           <MarkerContainer>
             <Icon name="bolt" color="white" size={40} />
           </MarkerContainer>
